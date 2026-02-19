@@ -179,10 +179,14 @@ class MainWindow(QMainWindow):
         if ICON_PATH.exists():
             self.setWindowIcon(QIcon(str(ICON_PATH)))
 
+        self._screens_sleeping = False
+        self._missed_poll = False
+
         self._build_ui()
         self._setup_status_bar()
         self._setup_timer()
         self._restore_position()
+        self._setup_screen_sleep_detection()
 
         QTimer.singleShot(100, self._poll)
 
@@ -258,7 +262,38 @@ class MainWindow(QMainWindow):
         self._timer.timeout.connect(self._poll)
         self._timer.start(POLL_INTERVAL_MS)
 
+    def _setup_screen_sleep_detection(self) -> None:
+        try:
+            from AppKit import NSWorkspace  # type: ignore[import]
+
+            nc = NSWorkspace.sharedWorkspace().notificationCenter()
+
+            def on_sleep(_notif: object) -> None:
+                log.info("Screens sleeping — pausing polls")
+                self._screens_sleeping = True
+
+            def on_wake(_notif: object) -> None:
+                log.info("Screens woke — resuming polls")
+                self._screens_sleeping = False
+                if self._missed_poll:
+                    self._missed_poll = False
+                    QTimer.singleShot(2000, self._poll)
+
+            nc.addObserverForName_object_queue_usingBlock_(
+                "NSWorkspaceScreensDidSleepNotification", None, None, on_sleep
+            )
+            nc.addObserverForName_object_queue_usingBlock_(
+                "NSWorkspaceScreensDidWakeNotification", None, None, on_wake
+            )
+            log.info("Screen sleep detection active")
+        except Exception as e:
+            log.warning("Screen sleep detection unavailable: %s", e)
+
     def _poll(self) -> None:
+        if self._screens_sleeping:
+            log.debug("Skipping poll — screens sleeping")
+            self._missed_poll = True
+            return
         log.info("Polling usage data...")
         data = poll_usage()
         self._apply_data(data)
