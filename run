@@ -1,0 +1,78 @@
+#!/usr/bin/env python3
+"""Run facade: start, test, lint subcommands with venv management."""
+import os
+import sys
+import subprocess
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+VENV = ROOT / ".venv"
+VENV_PYTHON = VENV / "bin" / "python"
+VENV_PIP = VENV / "bin" / "pip"
+
+
+def ensure_venv():
+    if not VENV_PYTHON.exists():
+        print("Creating virtual environment...")
+        subprocess.run([sys.executable, "-m", "venv", str(VENV)], check=True)
+        subprocess.run([str(VENV_PIP), "install", "-q", "-r", str(ROOT / "requirements.txt")], check=True)
+        print("Virtual environment ready.")
+
+
+def run_in_venv(args, **kwargs):
+    """Re-execute this script under the venv Python if not already there."""
+    if Path(sys.executable).resolve() != VENV_PYTHON.resolve():
+        os.execv(str(VENV_PYTHON), [str(VENV_PYTHON)] + [__file__] + sys.argv[1:])
+    return subprocess.run(args, **kwargs)
+
+
+def cmd_start():
+    run_in_venv([str(VENV_PYTHON), str(ROOT / "src" / "app_display.py")])
+
+
+def cmd_test():
+    result = run_in_venv(
+        [str(VENV_PYTHON), "-m", "pytest", str(ROOT / "src"), "-v", "--tb=short"],
+        cwd=str(ROOT),
+    )
+    sys.exit(result.returncode)
+
+
+def cmd_lint():
+    result = run_in_venv(
+        [str(VENV / "bin" / "ruff"), "check", str(ROOT / "src")],
+        cwd=str(ROOT),
+    )
+    sys.exit(result.returncode)
+
+
+def main():
+    ensure_venv()
+
+    # Re-exec under venv python if needed (use sys.path manipulation instead of execv loop)
+    venv_python = VENV_PYTHON.resolve()
+    current_python = Path(sys.executable).resolve()
+    if current_python != venv_python:
+        # Add venv site-packages to sys.path
+        import glob
+        site_packages = glob.glob(str(VENV / "lib" / "python*" / "site-packages"))
+        for sp in site_packages:
+            if sp not in sys.path:
+                sys.path.insert(0, sp)
+
+    subcmd = sys.argv[1] if len(sys.argv) > 1 else "start"
+
+    if subcmd == "start":
+        cmd_start()
+    elif subcmd == "test":
+        cmd_test()
+    elif subcmd == "lint":
+        cmd_lint()
+    else:
+        print(f"Unknown subcommand: {subcmd}")
+        print("Usage: ./run [start|test|lint]")
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
