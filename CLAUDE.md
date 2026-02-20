@@ -14,13 +14,13 @@ Real-time PySide6 desktop app showing Claude Code subscription usage via two ret
 ```
 src/
   data_access.py       # OAuth credentials, token refresh, API polling, header parsing
-  data_access_test.py  # 50 unit tests for data layer
+  data_access_test.py  # 52 unit tests for data layer
   gauge_widget.py      # QPainter analog gauge widget
   app_display.py       # Main PySide6 window (MainWindow, ScorePanel)
 assets/
-  icon.jpg             # App icon 256x256
+  icon.png             # App icon 256x256, transparent bg (preferred over icon.jpg)
   states/
-    state_01..10.jpg   # 400x200 humorous state images (state 6 = zen balance)
+    state_01..10.png   # 400x200 transparent-bg PNGs (preferred over .jpg fallbacks)
 ```
 
 ## OAuth Token Authentication (IMPORTANT)
@@ -44,12 +44,23 @@ All confirmed by real API call. Resets are **Unix epoch integers** (not ISO 8601
 If utilization value is 0.0–1.0, it's treated as fraction (multiplied ×100). If >1.0, treated as direct percentage.
 
 ## Score System
-- `score = used_pct - elapsed_pct` (averaged across both gauges)
-- Negative = under budget (good), Positive = over budget (bad)
-- Maps to state 1-10 via `STATE_BOUNDARIES` in data_access.py
-- State 6 = zen perfect balance (score -2 to +2)
+- `score = used_pct - elapsed_pct` using **7-day period only** (5h window ignored for score)
+- Negative = over budget (bad), Positive = under budget (good)
+- Display is negated: `display_score = -score`, shown as "Ahead: X%" or "Behind: X%"
+- Maps to state 1-10 via `STATE_BOUNDARIES` in data_access.py (state 1 = best, 10 = worst)
+- State 6 = zen perfect balance (internal score -2 to +2)
+
+## Screen Sleep Detection
+- `MainWindow._setup_screen_sleep_detection()` registers NSWorkspace notifications via PyObjC
+- Requires `pyobjc-framework-Cocoa` in venv (installed)
+- Polls are skipped while `_screens_sleeping=True`; catch-up poll fires 2s after wake
+- Gracefully degrades if AppKit unavailable (just logs a warning)
 
 ## Testing Notes
-- 50 tests in `data_access_test.py` — all pass without network/GUI access
+- 52 tests in `data_access_test.py` — all pass without network/GUI access
 - Test `test_days_and_hours` uses loose "h" assertion (not exact hours) due to execution timing drift
 - GUI not tested (no headless PySide6 setup)
+
+## Window & Daemon
+- Window position persisted to `~/.claude/claude-gauge-prefs.json` via moveEvent
+- Registered under `auto` daemon: auto-starts at login, auto-restarts on crash
