@@ -14,7 +14,7 @@ Real-time PySide6 desktop app showing Claude Code subscription usage via two ret
 ```
 src/
   data_access.py       # OAuth credentials, token refresh, API polling, header parsing
-  data_access_test.py  # 52 unit tests for data layer
+  data_access_test.py  # unit tests for data layer (no GUI/network required)
   gauge_widget.py      # QPainter analog gauge widget
   app_display.py       # Main PySide6 window (MainWindow, ScorePanel)
 assets/
@@ -57,7 +57,7 @@ If utilization value is 0.0–1.0, it's treated as fraction (multiplied ×100). 
 - Gracefully degrades if AppKit unavailable (just logs a warning)
 
 ## Testing Notes
-- 52 tests in `data_access_test.py` — all pass without network/GUI access
+- Tests in `data_access_test.py` — all pass without network/GUI access
 - Test `test_days_and_hours` uses loose "h" assertion (not exact hours) due to execution timing drift
 - GUI not tested (no headless PySide6 setup)
 
