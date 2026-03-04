@@ -47,7 +47,7 @@ assets/
 ```
 - "Current session" → 5h window gauge
 - "Current week (all models)" → 7-day period gauge
-- Reset times are human-readable with timezone in parens
+- Reset times are human-readable with timezone in parens (e.g., "10pm", "1:59pm", "Mar 6 at 2:45pm")
 
 ## Score System
 - `score = used_pct - elapsed_pct` using **7-day period only** (5h window ignored for score)
