@@ -6,8 +6,9 @@ import logging
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from threading import Thread
 
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QFont, QIcon, QPalette, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
@@ -171,6 +172,8 @@ def _gauge_card(gauge: GaugeWidget) -> QFrame:
 
 
 class MainWindow(QMainWindow):
+    _poll_finished = Signal(object)  # emits UsageData from bg thread
+
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("Claude Gauge")
@@ -181,12 +184,14 @@ class MainWindow(QMainWindow):
 
         self._screens_sleeping = False
         self._missed_poll = False
+        self._polling = False
 
         self._build_ui()
         self._setup_status_bar()
         self._setup_timer()
         self._restore_position()
         self._setup_screen_sleep_detection()
+        self._poll_finished.connect(self._apply_data)
 
         QTimer.singleShot(100, self._poll)
 
@@ -294,11 +299,23 @@ class MainWindow(QMainWindow):
             log.debug("Skipping poll — screens sleeping")
             self._missed_poll = True
             return
+        if self._polling:
+            log.debug("Skipping poll — already in progress")
+            return
         log.info("Polling usage data...")
-        data = poll_usage()
-        self._apply_data(data)
+        self._polling = True
+
+        def _bg_poll() -> None:
+            try:
+                data = poll_usage()
+            except Exception as e:
+                data = UsageData(error=f"Error: {e}")
+            self._poll_finished.emit(data)
+
+        Thread(target=_bg_poll, daemon=True).start()
 
     def _apply_data(self, data: UsageData) -> None:
+        self._polling = False
         now_str = datetime.now(timezone.utc).strftime("%H:%M:%S UTC")
         self._updated_label.setText(f"Updated {now_str}")
 
