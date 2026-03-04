@@ -120,12 +120,13 @@ def _parse_reset_time(text: str) -> Optional[datetime]:
     # Strip the timezone part for time parsing
     time_part = text[:tz_match.start()].strip()
 
-    # Parse time component (e.g., "2pm", "10am")
-    time_match = re.search(r'(\d{1,2})(am|pm)', time_part, re.IGNORECASE)
+    # Parse time component (e.g., "2pm", "10am", "1:59pm", "12:30am")
+    time_match = re.search(r'(\d{1,2})(?::(\d{2}))?\s*(am|pm)', time_part, re.IGNORECASE)
     if not time_match:
         return None
     hour = int(time_match.group(1))
-    ampm = time_match.group(2).lower()
+    minute = int(time_match.group(2)) if time_match.group(2) else 0
+    ampm = time_match.group(3).lower()
     if ampm == 'pm' and hour != 12:
         hour += 12
     elif ampm == 'am' and hour == 12:
@@ -149,7 +150,7 @@ def _parse_reset_time(text: str) -> Optional[datetime]:
         # Use current year, but handle year boundary
         year = now_local.year
         try:
-            dt = datetime(year, month, day, hour, 0, 0, tzinfo=tz)
+            dt = datetime(year, month, day, hour, minute, 0, tzinfo=tz)
         except ValueError:
             return None
         # If the date is far in the past, it's probably next year
@@ -158,7 +159,7 @@ def _parse_reset_time(text: str) -> Optional[datetime]:
         return dt
     else:
         # Time only — assume today, but if already passed, assume tomorrow
-        dt = now_local.replace(hour=hour, minute=0, second=0, microsecond=0)
+        dt = now_local.replace(hour=hour, minute=minute, second=0, microsecond=0)
         if dt < now_local:
             dt += timedelta(days=1)
         return dt

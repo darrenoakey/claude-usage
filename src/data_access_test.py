@@ -115,6 +115,24 @@ class TestParseResetTime:
         assert dt is not None
         assert dt.hour == 0
 
+    def test_time_with_minutes(self):
+        dt = _parse_reset_time("1:59pm (UTC)")
+        assert dt is not None
+        assert dt.hour == 13
+        assert dt.minute == 59
+
+    def test_time_with_minutes_am(self):
+        dt = _parse_reset_time("11:30am (UTC)")
+        assert dt is not None
+        assert dt.hour == 11
+        assert dt.minute == 30
+
+    def test_date_with_minutes(self):
+        dt = _parse_reset_time("Mar 6 at 2:45pm (Australia/Sydney)")
+        assert dt is not None
+        assert dt.hour == 14
+        assert dt.minute == 45
+
 
 # ---------------------------------------------------------------------------
 # _parse_usage_text

@@ -154,9 +154,9 @@ class ScorePanel(QFrame):
     def show_error(self, message: str) -> None:
         self._image_label.setText("⚠")
         self._image_label.setStyleSheet("color: #c04040; font-size: 48px; background: transparent; border: none;")
-        self._score_label.setText("Auth Error")
+        self._score_label.setText("Error")
         self._score_label.setStyleSheet("color: #c04040; border: none;")
-        self._state_label.setText("Check credentials")
+        self._state_label.setText("Check logs for details")
         self._state_label.setStyleSheet("color: #808090; border: none;")
         self._pace_label.setText(message[:80])
 
