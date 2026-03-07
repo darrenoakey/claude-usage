@@ -255,16 +255,21 @@ def _capture_pane() -> str:
     return _run_tmux("capture-pane", "-t", TMUX_SESSION, "-p", "-S", "-80")
 
 
+def _capture_pane_tail(lines: int = 10) -> str:
+    """Capture just the last N visible lines of the tmux pane."""
+    return _run_tmux("capture-pane", "-t", TMUX_SESSION, "-p", "-S", f"-{lines}")
+
+
 def _is_claude_alive() -> bool:
     """Check if claude CLI is running and responsive in the tmux session."""
     if not _tmux_session_exists():
         return False
-    content = _capture_pane()
-    # If we see "Resume this session" or shell prompt without claude, it's dead
+    # Only check recent lines — deep scrollback has stale "Claude Code" banners
+    content = _capture_pane_tail(15)
     if "Resume this session" in content:
         return False
-    # Check if the pane shows a claude prompt (❯ or similar)
-    if "Claude Code" in content or "❯" in content:
+    # ❯ is Claude's TUI prompt character (distinct from shell prompts)
+    if "❯" in content:
         return True
     return False
 
