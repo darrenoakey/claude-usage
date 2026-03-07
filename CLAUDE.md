@@ -67,6 +67,12 @@ assets/
 - Test `test_days_and_hours` uses loose "h" assertion (not exact hours) due to execution timing drift
 - GUI not tested (no headless PySide6 setup)
 
+## Tmux Liveness Detection
+- `_is_claude_alive()` checks only the last 15 lines of the pane (NOT deep scrollback)
+- The `❯` character is Claude CLI's TUI prompt — distinct from shell prompts (e.g., `src/foo >`)
+- Deep scrollback (`-S -80`) retains stale "Claude Code" banners after Claude exits → false positives
+- `_capture_pane()` (full 80-line scrollback) is for /usage dialog content only
+
 ## Window & Daemon
 - Window position persisted to `~/.claude/claude-gauge-prefs.json` via moveEvent
 - Registered under `auto` daemon: auto-starts at login, auto-restarts on crash
