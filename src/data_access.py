@@ -15,6 +15,7 @@ log = logging.getLogger(__name__)
 TMUX_SESSION = "claude-usage-poll"
 TMUX_PANE_WIDTH = 200
 TMUX_PANE_HEIGHT = 50
+MAX_CONSECUTIVE_FAILURES = 2  # Restart session after this many failed polls
 
 # Score boundaries for state index (score = used_pct - elapsed_pct)
 STATE_BOUNDARIES = [
@@ -268,10 +269,31 @@ def _is_claude_alive() -> bool:
     content = _capture_pane_tail(15)
     if "Resume this session" in content:
         return False
+    # Detect shell prompt (Claude exited/crashed back to shell)
+    # Common shell prompts end with $ or % or >
+    stripped_lines = [l.strip() for l in content.strip().splitlines() if l.strip()]
+    if stripped_lines:
+        last_line = stripped_lines[-1]
+        # If last line looks like a shell prompt, Claude isn't running
+        if re.match(r'.*[\$%#]\s*$', last_line) and "❯" not in content:
+            log.info("Detected shell prompt — Claude CLI not running")
+            return False
     # ❯ is Claude's TUI prompt character (distinct from shell prompts)
     if "❯" in content:
         return True
     return False
+
+
+_consecutive_failures = 0
+
+
+def _kill_tmux_session() -> None:
+    """Kill the tmux session if it exists."""
+    if _tmux_session_exists():
+        subprocess.run(
+            ["tmux", "kill-session", "-t", TMUX_SESSION],
+            capture_output=True, timeout=5,
+        )
 
 
 def _ensure_tmux_session() -> bool:
@@ -282,11 +304,7 @@ def _ensure_tmux_session() -> bool:
     log.info("Creating tmux session %s with claude CLI...", TMUX_SESSION)
 
     # Kill any stale session
-    if _tmux_session_exists():
-        subprocess.run(
-            ["tmux", "kill-session", "-t", TMUX_SESSION],
-            capture_output=True, timeout=5,
-        )
+    _kill_tmux_session()
 
     # Create new detached session with specific pane size
     env = {**__import__('os').environ}
@@ -347,30 +365,73 @@ def _send_usage_command() -> Optional[str]:
     return content
 
 
+def _restart_and_retry() -> UsageData:
+    """Kill the tmux session, recreate it, and retry a single poll."""
+    global _consecutive_failures
+    log.warning(
+        "Restarting tmux session after %d consecutive failures",
+        _consecutive_failures,
+    )
+    _kill_tmux_session()
+    _consecutive_failures = 0  # Reset so _ensure_tmux_session gets a clean slate
+
+    if not _ensure_tmux_session():
+        return UsageData(error="Could not restart claude CLI in tmux")
+
+    content = _send_usage_command()
+    if content is None:
+        return UsageData(error="No response after restart")
+
+    data = _parse_usage_text(content)
+    if data.window_5h.used_pct == 0 and data.period_7d.used_pct == 0:
+        if "% used" not in content:
+            data.error = "Could not parse /usage output"
+    return data
+
+
 def poll_usage() -> UsageData:
     """Poll usage by sending /usage to the tmux-hosted claude CLI session."""
+    global _consecutive_failures
     try:
         if not _ensure_tmux_session():
+            _consecutive_failures += 1
+            if _consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
+                return _restart_and_retry()
             return UsageData(error="Could not start claude CLI in tmux")
 
         content = _send_usage_command()
         if content is None:
+            _consecutive_failures += 1
+            if _consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
+                return _restart_and_retry()
             return UsageData(error="No response from /usage command")
 
         data = _parse_usage_text(content)
         if data.window_5h.used_pct == 0 and data.period_7d.used_pct == 0:
             # Might be a parse failure — check if we got any content
             if "% used" not in content:
+                _consecutive_failures += 1
+                if _consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
+                    return _restart_and_retry()
                 data.error = "Could not parse /usage output"
+
+        if data.error is None:
+            _consecutive_failures = 0
 
         return data
 
     except subprocess.TimeoutExpired:
+        _consecutive_failures += 1
         log.error("Tmux command timed out")
+        if _consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
+            return _restart_and_retry()
         return UsageData(error="Tmux timeout")
     except FileNotFoundError:
         log.error("tmux not found — install with: brew install tmux")
         return UsageData(error="tmux not installed")
     except Exception as e:
+        _consecutive_failures += 1
         log.error("Unexpected error polling usage: %s", e)
+        if _consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
+            return _restart_and_retry()
         return UsageData(error=f"Error: {e}")
