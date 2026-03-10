@@ -72,6 +72,13 @@ assets/
 - The `❯` character is Claude CLI's TUI prompt — distinct from shell prompts (e.g., `src/foo >`)
 - Deep scrollback (`-S -80`) retains stale "Claude Code" banners after Claude exits → false positives
 - `_capture_pane()` (full 80-line scrollback) is for /usage dialog content only
+- Also detects shell prompts (lines ending `$`/`%`/`#`) — catches Claude crash-to-shell
+
+## Auto-Recovery
+- `_restart_and_retry()` kills tmux session, recreates, and retries poll in one cycle
+- Triggers after `MAX_CONSECUTIVE_FAILURES` (2) on ANY failure path (timeout, parse, startup, exception)
+- Counter resets after kill so the fresh session gets a clean slate
+- Previously recovery took 3 poll cycles; now it's immediate within the failing cycle
 
 ## Window & Daemon
 - Window position persisted to `~/.claude/claude-gauge-prefs.json` via moveEvent
