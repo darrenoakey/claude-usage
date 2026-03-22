@@ -271,11 +271,11 @@ def _is_claude_alive() -> bool:
         return False
     # Detect shell prompt (Claude exited/crashed back to shell)
     # Common shell prompts end with $ or % or >
-    stripped_lines = [l.strip() for l in content.strip().splitlines() if l.strip()]
+    stripped_lines = [ln.strip() for ln in content.strip().splitlines() if ln.strip()]
     if stripped_lines:
         last_line = stripped_lines[-1]
         # If last line looks like a shell prompt, Claude isn't running
-        if re.match(r'.*[\$%#]\s*$', last_line) and "❯" not in content:
+        if re.match(r'.*[\$%#>]\s*$', last_line) and "❯" not in content:
             log.info("Detected shell prompt — Claude CLI not running")
             return False
     # ❯ is Claude's TUI prompt character (distinct from shell prompts)
@@ -337,32 +337,36 @@ def _send_usage_command() -> Optional[str]:
     The CLI shows an autocomplete dropdown when typing /usage.
     We type the command, wait for autocomplete, then press Enter to select.
     After the usage dialog renders, we press Escape to dismiss it.
+    Retries once if the first attempt fails (Claude TUI can be slow).
     """
-    # Type /usage — this triggers autocomplete dropdown
-    _run_tmux("send-keys", "-t", TMUX_SESSION, "/usage", "")
-    time.sleep(1)
+    for attempt in range(2):
+        if attempt > 0:
+            log.info("Retrying /usage command (attempt %d)", attempt + 1)
+            time.sleep(2)
 
-    # Press Enter to select /usage from the autocomplete menu
-    _run_tmux("send-keys", "-t", TMUX_SESSION, "Enter", "")
-
-    # Wait for the usage dialog to appear (look for "% used")
-    content = ""
-    for _ in range(15):
+        # Type /usage — this triggers autocomplete dropdown
+        _run_tmux("send-keys", "-t", TMUX_SESSION, "/usage", "")
         time.sleep(1)
-        content = _capture_pane()
-        if "% used" in content:
-            break
-    else:
-        log.warning("Usage dialog did not appear")
-        # Dismiss anything that might be showing
+
+        # Press Enter to select /usage from the autocomplete menu
+        _run_tmux("send-keys", "-t", TMUX_SESSION, "Enter", "")
+
+        # Wait for the usage dialog to appear (look for "% used")
+        content = ""
+        for _ in range(15):
+            time.sleep(1)
+            content = _capture_pane()
+            if "% used" in content:
+                # Dismiss the dialog
+                time.sleep(0.5)
+                _run_tmux("send-keys", "-t", TMUX_SESSION, "Escape", "")
+                return content
+
+        # Dismiss anything that might be showing before retry
         _run_tmux("send-keys", "-t", TMUX_SESSION, "Escape", "")
-        return None
 
-    # Dismiss the dialog
-    time.sleep(0.5)
-    _run_tmux("send-keys", "-t", TMUX_SESSION, "Escape", "")
-
-    return content
+    log.warning("Usage dialog did not appear after retries")
+    return None
 
 
 def _restart_and_retry() -> UsageData:
@@ -377,6 +381,9 @@ def _restart_and_retry() -> UsageData:
 
     if not _ensure_tmux_session():
         return UsageData(error="Could not restart claude CLI in tmux")
+
+    # Give Claude a few seconds to fully initialize before sending /usage
+    time.sleep(3)
 
     content = _send_usage_command()
     if content is None:

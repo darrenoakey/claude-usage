@@ -185,6 +185,7 @@ class MainWindow(QMainWindow):
         self._screens_sleeping = False
         self._missed_poll = False
         self._polling = False
+        self._last_good_data: UsageData | None = None
 
         self._build_ui()
         self._setup_status_bar()
@@ -317,14 +318,22 @@ class MainWindow(QMainWindow):
     def _apply_data(self, data: UsageData) -> None:
         self._polling = False
         now_str = datetime.now(timezone.utc).strftime("%H:%M:%S UTC")
-        self._updated_label.setText(f"Updated {now_str}")
 
         if data.error:
             log.warning("Poll error: %s", data.error)
-            self._gauge_5h.set_no_data()
-            self._gauge_7d.set_no_data()
-            self._score_panel.show_error(data.error)
+            if self._last_good_data is not None:
+                # Keep showing last good data with staleness indicator
+                self._updated_label.setText(f"Stale — last good {now_str} — {data.error}")
+            else:
+                self._updated_label.setText(f"Error {now_str}")
+                self._gauge_5h.set_no_data()
+                self._gauge_7d.set_no_data()
+                self._score_panel.show_error(data.error)
             return
+
+        log.info("Poll OK: 5h=%g%% 7d=%g%%", data.window_5h.used_pct, data.period_7d.used_pct)
+        self._last_good_data = data
+        self._updated_label.setText(f"Updated {now_str}")
 
         resets_5h = format_time_remaining(data.window_5h.resets_at)
         self._gauge_5h.set_usage(data.window_5h.used_pct, data.window_5h.elapsed_pct, resets_5h)
