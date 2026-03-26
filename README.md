@@ -103,3 +103,7 @@ If your Claude session needs to be renewed, the app takes care of it silently in
 ./run test    # Run the test suite (no internet or display required)
 ./run lint    # Check the code for style issues
 ```
+
+## License
+
+This project is licensed under [CC BY-NC 4.0](https://darren-static.waft.dev) - free to use and modify, but no commercial use without permission.
