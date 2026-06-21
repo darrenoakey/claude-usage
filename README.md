@@ -2,14 +2,14 @@
 
 # Claude Gauge
 
-> **Superseded (2026-06-20):** this standalone desktop app has been retired and its
-> `auto` service removed. Its visuals (the analog gauges and the ten mood
-> illustrations) now live in **agentd**, which serves a unified **Gauges** dashboard
-> for all three subscription providers (Codex, Claude, GLM-5) at
-> `http://127.0.0.1:8421` and is the single authoritative usage poller
-> (`GET /v1/subscription-usage`). Run agentd's browser UI instead of this app so
-> nothing double-polls Claude's `/usage`. This repo is kept as the source of the
-> ported gauge/mood artwork.
+> **Now a native dock client of agentd (2026-06-21).** This is a standalone macOS
+> desktop app (in the dock, with the speedometer icon) showing subscription burn
+> rate for **all three** providers — Codex, Claude, and GLM-5 — as native QPainter
+> gauges plus the combined mood panel. It no longer polls anything itself: it GETs
+> the already-computed snapshot from **agentd** (`GET http://127.0.0.1:8420/v1/subscription-usage`)
+> once a minute and draws it, so agentd stays the single usage poller. Run it with
+> `./run start` (auto-registered as the `agentd-gauge` service). Requires agentd
+> running locally.
 
 Ever wonder if you're burning through your Claude Code subscription too fast — or leaving it untouched when you could be getting more out of it? Claude Gauge gives you the answer at a glance, right on your desktop.
 
