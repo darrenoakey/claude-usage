@@ -18,6 +18,8 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import QSizePolicy, QWidget
 
+from ui_fonts import mono_font
+
 
 # Colour zones: (start_pct, end_pct, colour)
 ZONES = [
@@ -199,7 +201,7 @@ class GaugeWidget(QWidget):
 
             if is_major and i in (0, 25, 50, 75, 100):
                 label = str(i)
-                font = QFont("Courier", 7, QFont.Weight.Bold)
+                font = mono_font(7, QFont.Weight.Bold)
                 p.setFont(font)
                 p.setPen(QPen(QColor(200, 200, 200)))
                 label_r = radius - 2 - major_len - 12
@@ -256,21 +258,21 @@ class GaugeWidget(QWidget):
     def _draw_readout(self, p: QPainter, _cx: int, cy: int, w: int, _h: int) -> None:
         readout_y = cy + 20  # extra gap so arc hub doesn't overlap text
         if self._no_data:
-            p.setFont(QFont("Courier", 11, QFont.Weight.Bold))
+            p.setFont(mono_font(11, QFont.Weight.Bold))
             p.setPen(QPen(QColor(120, 120, 130)))
             p.drawText(QRect(0, readout_y, w, 50), Qt.AlignmentFlag.AlignHCenter, "N/A")
             return
 
         # Used percentage (large)
         used_text = f"{self._used_pct:.1f}%"
-        font_large = QFont("Courier", 17, QFont.Weight.Bold)
+        font_large = mono_font(17, QFont.Weight.Bold)
         p.setFont(font_large)
         color = _needle_color(self._used_pct)
         p.setPen(QPen(color))
         p.drawText(QRect(0, readout_y, w, 32), Qt.AlignmentFlag.AlignHCenter, f"Used: {used_text}")
 
         # Elapsed + resets on one line, extends wider than "Used" line above
-        font_small = QFont("Courier", 10)
+        font_small = mono_font(10)
         p.setFont(font_small)
         p.setPen(QPen(QColor(155, 158, 178)))
         elapsed_part = f"Elapsed: {self._elapsed_pct:.1f}%"
@@ -280,7 +282,7 @@ class GaugeWidget(QWidget):
     def _draw_title(self, p: QPainter, _cx: int, w: int, cy: int = 0, radius: int = 0) -> None:
         if not self._title:
             return
-        font = QFont("Courier", 11, QFont.Weight.Bold)
+        font = mono_font(11, QFont.Weight.Bold)
         p.setFont(font)
         p.setPen(QPen(QColor(160, 165, 210)))
         # Position title just above the bezel arc so it never overlaps

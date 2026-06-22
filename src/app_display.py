@@ -29,6 +29,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from data_access import Provider, UsageData, format_time_remaining, poll_usage
 from gauge_widget import GaugeWidget
+from ui_fonts import mono_font, mono_stylesheet
 
 log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -77,12 +78,12 @@ class ProviderCard(QFrame):
 
         header = QHBoxLayout()
         self._name = QLabel(title)
-        self._name.setFont(QFont("Courier", 13, QFont.Weight.Bold))
+        self._name.setFont(mono_font(13, QFont.Weight.Bold))
         self._name.setStyleSheet("color: #aab0e0; border: none;")
         header.addWidget(self._name)
         header.addStretch()
         self._plan = QLabel("")
-        self._plan.setFont(QFont("Courier", 9))
+        self._plan.setFont(mono_font(9))
         self._plan.setStyleSheet("color: #7e84a8; border: none;")
         header.addWidget(self._plan)
         layout.addLayout(header)
@@ -95,7 +96,7 @@ class ProviderCard(QFrame):
 
         self._reason = QLabel("")
         self._reason.setWordWrap(True)
-        self._reason.setFont(QFont("Courier", 9))
+        self._reason.setFont(mono_font(9))
         self._reason.setStyleSheet("color: #c98a8a; border: none;")
         layout.addWidget(self._reason)
 
@@ -145,13 +146,13 @@ class CombinedPanel(QFrame):
         text.setSpacing(4)
         text.setAlignment(Qt.AlignmentFlag.AlignVCenter)
         self._score = QLabel("Score: --")
-        self._score.setFont(QFont("Courier", 24, QFont.Weight.Bold))
+        self._score.setFont(mono_font(24, QFont.Weight.Bold))
         text.addWidget(self._score)
         self._state = QLabel("---")
-        self._state.setFont(QFont("Courier", 15, QFont.Weight.Bold))
+        self._state.setFont(mono_font(15, QFont.Weight.Bold))
         text.addWidget(self._state)
         self._pace = QLabel("")
-        self._pace.setFont(QFont("Courier", 11))
+        self._pace.setFont(mono_font(11))
         self._pace.setStyleSheet("color: #9090b0; border: none;")
         text.addWidget(self._pace)
         inner.addLayout(text)
@@ -238,7 +239,7 @@ class MainWindow(QMainWindow):
 
     def _setup_status_bar(self) -> None:
         bar = QStatusBar()
-        bar.setStyleSheet("QStatusBar { background: #0c0c18; color: #505068; font-family: Courier; font-size: 10px; border-top: 1px solid #1e1e2e; }")
+        bar.setStyleSheet(f"QStatusBar {{ background: #0c0c18; color: #505068; {mono_stylesheet()} font-size: 10px; border-top: 1px solid #1e1e2e; }}")
         self._updated = QLabel("Connecting to agentd…")
         self._updated.setStyleSheet("color: #505068;")
         bar.addPermanentWidget(self._updated)
